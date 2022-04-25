@@ -1,11 +1,12 @@
 {
 	"name": "regexextract",
+	"publisher": "regexextract",
 	"displayName": "Regex Extract",
 	"description": "",
 	"repository": {
 		"url": "https://github.com/Accessory/regexextract"
 	},
-	"version": "0.1.1",
+	"version": "0.1.4",
 	"engines": {
 		"vscode": "^1.66.0"
 	},

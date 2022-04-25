@@ -1,4 +1,4 @@
-# regexextract
+# Regex Extract
 
 This lets you select a source, a template and a regex file to create an output.
 
@@ -19,5 +19,8 @@ This command search through a file with regex and extracts the selected group pa
 # Render Regex
 
 With this command you can select a source, template and regex file and compines them to a resulting text
+
+# Configuration
+It is possible to add regex expressions in the configuration for easy selection
 
 
