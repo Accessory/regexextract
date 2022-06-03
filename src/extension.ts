@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 class RegexRender {
-	public toDispose?: vscode.Disposable;
+	public toDispose?: vscode.Disposable;	
 
 
 	public extract(text: string | undefined, regexString: string | undefined, group: any) {
@@ -113,6 +113,8 @@ class RegexRender {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+	let lastRegexes: string[] = [];
+	let lastGroupRegexes: string[] = [];
 
 	let regexRender: RegexRender = new RegexRender();
 
@@ -128,6 +130,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!items) {
 				items = [];
 			}
+			items.unshift(...lastRegexes);
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.placeholder = "Regex";
 			quickPick.canSelectMany = false;
@@ -151,7 +154,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 		const regexString = await p;
-		console.log(regexString);
+
+		lastRegexes.push(regexString);
 
 		regexRender.extract(text, regexString, 0);
 	});
@@ -168,6 +172,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!items) {
 				items = [];
 			}
+			items.unshift(...lastGroupRegexes);
 			const quickPick = vscode.window.createQuickPick();
 			quickPick.placeholder = "Regex";
 			quickPick.canSelectMany = false;
@@ -191,13 +196,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		});
 
 		const regexString = await p;
-		console.log(regexString);
 		if (!regexString) {
 			return;
 		}
 
+		lastGroupRegexes.push(regexString);
+
 		const group = await Promise.resolve(vscode.window.showInputBox({ placeHolder: "Group", value: "1" }));
-		if (group) {
+		if (group) {			
 			regexRender.extract(text, regexString, Number.parseInt(group));
 		}
 	});
