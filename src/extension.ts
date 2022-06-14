@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 class RegexRender {
-	public toDispose?: vscode.Disposable;	
+	public toDispose?: vscode.Disposable;
 
 
 	public extract(text: string | undefined, regexString: string | undefined, group: any) {
@@ -69,7 +69,6 @@ class RegexRender {
 				const matches = source.matchAll(rgx);
 
 				let result = "<xmp>";
-				let first = true;
 				for (const match of matches) {
 					let currentTemplate = template;
 					currentTemplate = currentTemplate.replace(/\\n/g, "\n");
@@ -115,100 +114,12 @@ class RegexRender {
 export async function activate(context: vscode.ExtensionContext) {
 	let lastRegexes: string[] = [];
 	let lastGroupRegexes: string[] = [];
+	let lastRegex = "";
+	let lastGroupRegex = "";
 
 	let regexRender: RegexRender = new RegexRender();
 
-	let disposable2 = vscode.commands.registerCommand('regexextract.extractRegex', async () => {
-		const text = vscode.window.activeTextEditor?.document.getText();
-		if (!text) {
-			return;
-		}
-
-		let p = new Promise<string>((resolve) => {
-			const config = vscode.workspace.getConfiguration("regexextract");
-			let items = config.get<string[]>('regexPresets');
-			if (!items) {
-				items = [];
-			}
-			items.unshift(...lastRegexes);
-			const quickPick = vscode.window.createQuickPick();
-			quickPick.placeholder = "Regex";
-			quickPick.canSelectMany = false;
-			quickPick.items = items.map((i) => ({ "label": i }));
-			let extraValue: string = "";
-			quickPick.onDidChangeValue((e) => {
-				if (items && !items.includes(quickPick.value)) {
-					quickPick.items = [quickPick.value, ...items].map(label => ({ label }));
-				}
-			});
-			quickPick.onDidAccept(() => {
-				if (quickPick.activeItems.length === 0) {
-					resolve(quickPick.value);
-				} else {
-					resolve(quickPick.activeItems[0].label);
-				}
-				quickPick.hide();
-			});
-			quickPick.show();
-
-		});
-
-		const regexString = await p;
-
-		lastRegexes.push(regexString);
-
-		regexRender.extract(text, regexString, 0);
-	});
-
-	let disposable3 = vscode.commands.registerCommand('regexextract.extractRegexFromGroup', async () => {
-		const text = vscode.window.activeTextEditor?.document.getText();
-		if (!text) {
-			return;
-		}
-
-		let p = new Promise<string>((resolve) => {
-			const config = vscode.workspace.getConfiguration("regexextract");
-			let items = config.get<string[]>('regexPresets');
-			if (!items) {
-				items = [];
-			}
-			items.unshift(...lastGroupRegexes);
-			const quickPick = vscode.window.createQuickPick();
-			quickPick.placeholder = "Regex";
-			quickPick.canSelectMany = false;
-			quickPick.items = items.map((i) => ({ "label": i }));
-			let extraValue: string = "";
-			quickPick.onDidChangeValue((e) => {
-				if (items && !items.includes(quickPick.value)) {
-					quickPick.items = [quickPick.value, ...items].map(label => ({ label }));
-				}
-			});
-			quickPick.onDidAccept(() => {
-				if (quickPick.activeItems.length === 0) {
-					resolve(quickPick.value);
-				} else {
-					resolve(quickPick.activeItems[0].label);
-				}
-				quickPick.hide();
-			});
-			quickPick.show();
-
-		});
-
-		const regexString = await p;
-		if (!regexString) {
-			return;
-		}
-
-		lastGroupRegexes.push(regexString);
-
-		const group = await Promise.resolve(vscode.window.showInputBox({ placeHolder: "Group", value: "1" }));
-		if (group) {			
-			regexRender.extract(text, regexString, Number.parseInt(group));
-		}
-	});
-
-	let disposable = vscode.commands.registerCommand('regexextract.renderRegex', async () => {
+	let renderRegex = vscode.commands.registerCommand('regexextract.renderRegex', async () => {
 
 		const files: vscode.Uri[] = await Promise.resolve(vscode.workspace.findFiles('*'));
 		let fileMap = new Map<string, vscode.Uri>();
@@ -248,8 +159,6 @@ export async function activate(context: vscode.ExtensionContext) {
 			placeHolder: 'Template File'
 		}));
 
-		// fileNames = fileNames.filter(f => f !== templateFile);
-
 		if (templateFile && regexFile && sourceFile) {
 			regexRender.createOrShow(fileMap.get(sourceFile), fileMap.get(templateFile), fileMap.get(regexFile));
 			regexRender.toDispose = vscode.workspace.onDidSaveTextDocument((f) => {
@@ -258,8 +167,105 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	context.subscriptions.push(disposable);
-	context.subscriptions.push(disposable2);
+	let extractRegex = vscode.commands.registerCommand('regexextract.extractRegex', async () => {
+		const text = vscode.window.activeTextEditor?.document.getText();
+		if (!text) {
+			return;
+		}
+
+		let p = new Promise<string>((resolve) => {
+			const config = vscode.workspace.getConfiguration("regexextract");
+			const configItems = config.get<string[]>('regexPresets');
+			let items: Set<string> = new Set();
+
+			configItems?.forEach(ci => items.add(ci));
+			lastRegexes.forEach(lr => items.add(lr));
+
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.placeholder = "Regex";
+			quickPick.canSelectMany = false;
+			quickPick.value = lastRegex;
+
+			quickPick.items = Array.from(items, (i) => ({ "label": i }));
+			quickPick.onDidChangeValue((e) => {
+				if (items) {
+					quickPick.items = [quickPick.value, ...items].map(label => ({ label }));
+				}
+			});
+
+			quickPick.onDidAccept(() => {
+				if (quickPick.activeItems.length === 0) {
+					resolve(quickPick.value);
+				} else {
+					resolve(quickPick.activeItems[0].label);
+				}
+				quickPick.hide();
+			});
+			quickPick.show();
+
+		});
+
+		const regexString = await p;
+
+		lastRegexes.push(regexString);
+		lastRegex = regexString;
+
+		regexRender.extract(text, regexString, 0);
+	});
+
+	let extractRegexFromGroup = vscode.commands.registerCommand('regexextract.extractRegexFromGroup', async () => {
+		const text = vscode.window.activeTextEditor?.document.getText();
+		if (!text) {
+			return;
+		}
+
+		let p = new Promise<string>((resolve) => {
+			const config = vscode.workspace.getConfiguration("regexextract");
+			const configItems = config.get<string[]>('regexPresets');
+			let items: Set<string> = new Set();
+
+			configItems?.forEach(ci => items.add(ci));
+			lastRegexes.forEach(lr => items.add(lr));
+
+			const quickPick = vscode.window.createQuickPick();
+			quickPick.placeholder = "Regex";
+			quickPick.canSelectMany = false;
+			quickPick.value = lastGroupRegex;
+			quickPick.items = Array.from(items).map((i) => ({ "label": i }));
+			quickPick.onDidChangeValue((e) => {
+				if (items) {
+					quickPick.items = [quickPick.value, ...items].map(label => ({ label }));
+				}
+			});
+			quickPick.onDidAccept(() => {
+				if (quickPick.activeItems.length === 0) {
+					resolve(quickPick.value);
+				} else {
+					resolve(quickPick.activeItems[0].label);
+				}
+				quickPick.hide();
+			});
+			quickPick.show();
+
+		});
+
+		const regexString = await p;
+		if (!regexString) {
+			return;
+		}
+
+		lastGroupRegexes.push(regexString);
+		lastGroupRegex = regexString;
+
+		const group = await Promise.resolve(vscode.window.showInputBox({ placeHolder: "Group", value: "1" }));
+		if (group) {
+			regexRender.extract(text, regexString, Number.parseInt(group));
+		}
+	});
+
+	context.subscriptions.push(renderRegex);
+	context.subscriptions.push(extractRegex);
+	context.subscriptions.push(extractRegexFromGroup);
 }
 
 export function deactivate() { }
